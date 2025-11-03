@@ -88,6 +88,32 @@ public:
 
 private:
 
+    // Construye el camino desde la raíz hasta la posición donde se encuentra o debería insertarse la key.
+    bool findPathToKey(const TK &key,
+                       Pila<Pair<Node<TK> *, int>> &pila) const { // todos los children deben de estar con nullptr si es hoja
+        Node<TK> *current = root;
+        while (current != nullptr) {
+            for (int i = 0; i < current->count; ++i) {
+                if (key < current->keys[i]) {
+                    pila.push({current, i});
+                    current = current->children[i];
+                    break;
+                }
+                if (current->keys[i] < key) {
+                    if (i + 1 == current->count) {
+                        pila.push({current, current->count});
+                        current = current->children[current->count];
+                        break;
+                    }
+                    continue;
+                }
+                pila.push({current, i});
+                return true;
+            }
+        }
+        return false;
+    }
+
 
     // Aplica una rotación entre el nodo y su hermano (izquierdo o derecho),
     // fromLeft = true -> rotar con el hermano izquierdo
