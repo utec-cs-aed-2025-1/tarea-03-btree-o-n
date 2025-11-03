@@ -154,6 +154,116 @@ private:
         return false;
     }
 
+    // se usa para insertar un valor con su hijo derecho en un nodo que tiene espacio
+    void insertIntoNode(Node<TK> *const &node, const int &index, const TK &value,
+                        Node<TK> *const &rightOfValue) {
+        node->children[node->count + 1] = node->children[node->count];
+        for (int i = node->count; i > index; --i) {
+            node->keys[i] = node->keys[i - 1];
+            node->children[i] = node->children[i - 1];
+        }
+        node->keys[index] = value;
+        node->children[index + 1] = rightOfValue;
+        ++node->count;
+    }
+
+    Pair<Node<TK>*, TK> split(Node<TK> *const &node, const int &index, const TK &value, Node<TK> *const &rightOfValue) {
+        int medianIndex = (M - 1) / 2;
+        TK median = TK();
+        Node<TK> *rightNode = new Node<TK>(M);
+
+        if (index < medianIndex) {
+            // valor mediano
+            median = node->keys[medianIndex - 1];
+            node->keys[medianIndex - 1] = TK();
+
+            // actualizando nodo derecho del split
+            for (int i = medianIndex, j = 0; i < node->count; ++i, ++j) {
+                rightNode->keys[j] = node->keys[i];
+                node->keys[i] = TK();
+                rightNode->children[j] = node->children[i];
+                node->children[i] = nullptr;
+            }
+            rightNode->children[node->count - medianIndex] = node->children[node->count];
+            node->children[node->count] = nullptr;
+
+            rightNode->count = node->count - medianIndex;
+            rightNode->leaf = node->leaf;
+
+            // actualizando nodo izquierdo del split
+            node->children[medianIndex] = node->children[medianIndex - 1];
+            for (int i = medianIndex - 1; i > index; --i) {
+                node->keys[i] = node->keys[i - 1];
+                node->children[i] = node->children[i - 1];
+            }
+            node->keys[index] = value;
+            node->children[index + 1] = rightOfValue;
+
+            node->count = medianIndex;
+
+        } else if (medianIndex < index) {
+            // valor mediano
+            median = node->keys[medianIndex];
+            node->keys[medianIndex] = TK();
+
+            // actualizando nodo derecho del split
+            for (int i = medianIndex + 1, j = 0; i < index; ++i, ++j) {
+                rightNode->keys[j] = node->keys[i];
+                node->keys[i] = TK();
+                rightNode->children[j] = node->children[i];
+                node->children[i] = nullptr;
+            }
+            rightNode->children[index - medianIndex - 1] = node->children[index];
+            node->children[index] = nullptr;
+
+            rightNode->keys[index - medianIndex - 1] = value;
+            node->children[index] = rightOfValue;
+
+            for (int i = index, j = index - medianIndex; i < node->count; ++i, ++j) {
+                rightNode->keys[j] = node->keys[i];
+                node->keys[i] = TK();
+                rightNode->children[j] = node->children[i];
+                node->children[i] = nullptr;
+            }
+            rightNode->children[node->count - medianIndex] = node->children[node->count];
+            node->children[node->count] = nullptr;
+
+            rightNode->count = node->count - medianIndex;
+            rightNode->leaf = node->leaf;
+
+            // actualizando nodo izquierdo del split
+            node->count = medianIndex;
+
+        } else {
+            // valor mediano
+            median = value;
+
+            // actualizando nodo derecho del split
+            rightNode->children[0] = rightOfValue;
+            for (int i = medianIndex, j = 0; i < node->count; ++i, ++j) {
+                rightNode->keys[j] = node->keys[i];
+                node->keys[i] = TK();
+                rightNode->children[j + 1] = node->children[i + 1];
+                node->children[i + 1] = nullptr;
+            }
+            rightNode->count = node->count - medianIndex;
+            rightNode->leaf = node->leaf;
+
+            // actualizando nodo izquierdo del split
+            node->count = medianIndex;
+        }
+
+        return {rightNode, median};
+    }
+
+
+    void removeKeyFromLeaf(Node<TK>* const& node, const int& index) {
+        for (int i = index; i < node->count - 1; ++i) {
+            node->keys[i] = node->keys[i + 1];
+        }
+        node->keys[node->count - 1] = TK();
+        --node->count;
+    }
 
     // Aplica una rotación entre el nodo y su hermano (izquierdo o derecho),
     // fromLeft = true -> rotar con el hermano izquierdo
