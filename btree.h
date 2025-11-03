@@ -80,11 +80,31 @@ public:
     TK maxKey();  // maximo valor de la llave en el arbol
     void clear(); // eliminar todos lo elementos del arbol
     int size(); // retorna el total de elementos insertados
-  
+
     // Construya un árbol B a partir de un vector de elementos ordenados
-    static BTree* build_from_ordered_vector(vector<T> elements);
+    static BTree* build_from_ordered_vector(std::vector<TK> &elements, const int& M) {
+        BTree<TK>* btree = new BTree(M);
+        Pair<Node<TK>*, int>* basePromoted = nullptr;
+        if (elements.size() < M) {
+            btree->root =
+                    build_from_ordered_vector_recursivo(elements, basePromoted, elements.size() + 1, M);
+        } else {
+            basePromoted = new Pair<Node<TK>*, int>[elements.size() + 1];
+            for (int i = 0; i <= elements.size(); ++i) {
+                basePromoted[i].first = nullptr;
+                basePromoted[i].second = i;
+            }
+
+            btree->root =
+                    build_from_ordered_vector_recursivo(elements, basePromoted, elements.size() + 1, M);
+        }
+        return btree;
+    }
+
     // Verifique las propiedades de un árbol B
-    bool check_properties();
+    bool check_properties() const {
+        return check_properties_rec(root).valid;
+    }
 
 private:
 
@@ -231,6 +251,224 @@ private:
             delete[] sibling->children;
             delete sibling;
         }
+    }
+
+    // --- sucesor
+    // Recibe una pila con el camino desde la raíz hasta la clave buscada,
+    // incluyendo el nodo y la posición donde se encontró la key.
+    Pair<TK, int> successor(Pila<Pair<Node<TK>*, int>>& pila) const {
+        if (pila.is_empty())
+            throw std::runtime_error("No existe esta key");
+
+        Node<TK>* current = pila.top().first;
+        int index = pila.top().second;
+        TK key = current->keys[index];
+
+        if (current->leaf) { // es hoja
+            if (index + 1 == current->count) { // esta en el extremo
+                while (current != root && index + 1 == current->count) {
+                    pila.pop();
+                    current = pila.top().first;
+                    index = pila.top().second;
+                }
+                if (index == current->count)
+                    return {key, index}; // es el maximo, no hay sucesor
+                return {current->keys[index], index};  // el sucesor está en un ancestro
+            }
+            return {current->keys[index + 1], index + 1}; // el sucesor es la siguiente key
+
+        } else {
+            current = current->children[index + 1]; // bajar al hijo derecho de la key actual
+            pila.top().second = index + 1; // arreglar posicion de busqueda
+            pila.push({current, 0});
+
+            // buscar el mínimo en ese subárbol
+            while (!current->leaf) {
+                current = current->children[0];
+                pila.push({current, 0});
+            }
+            return {current->keys[0], 0};
+        }
+    }
+
+
+
+
+
+    // promoted tiene los punteros a los hijos y los indices de los elementos que suben(tiene tamaño size = numero de hijos)
+    static Node<TK>* build_from_ordered_vector_recursivo(const std::vector<TK>& elements,
+                                                         Pair<Node<TK>*, int>* const&  promoted,
+                                                         int size, int M) {
+        if (size - 1 < M) { // no se puede dividir, ahi queda
+            Node<TK>* root = new Node<TK>(M);
+
+            if (promoted == nullptr) {
+                // caso root hoja
+                for (int  i = 0; i < elements.size(); ++i) {
+                    root->keys[i] = elements[i];
+                    ++root->count;
+                }
+                root->leaf = true;
+            } else {
+                // caso root no hoja
+                for (int  i = 0; i < size - 1; ++i) {
+                    root->keys[i] = elements[promoted[i].second];
+                    root->children[i] = promoted[i].first;
+                    ++root->count;
+                }
+                root->children[root->count] = promoted[size - 1].first;
+                root->leaf = false;
+                delete[] promoted;
+            }
+            return root;
+
+        } else if (promoted != nullptr) {
+            // se puede dividir
+            int nextLevelSize = (size - 1 + 1 + M - 1) / M;
+            Pair<Node<TK>*, int>* nextPromoted = new Pair<Node<TK>*, int>[nextLevelSize];
+
+            int t = 0; // indice de nextPromoted
+            int i = 0; // indice de Promoted
+            for (; t < nextLevelSize; ++t) {
+                Node<TK>* newNode = new Node<TK>(M); // nuevo nodo
+
+                int minDegree = (M % 2 == 0) ? M / 2 : (M + 1) / 2;
+                int minKeys = minDegree - 1;
+
+                int keyCount = 0;
+                if (size - 1 - i > M -1 && size - 1- i < M + minKeys) { // para respetar los cantidades dos ultimos nodos
+                    keyCount = minKeys;
+                } else if (size - 1 -i > M - 1)
+                    keyCount = M - 1;
+                else
+                    keyCount = size - 1 -i;
+
+                for (int j = 0; j < keyCount; ++j, ++i) { // j es el índice del nodo creado
+                    newNode->keys[j] = elements[promoted[i].second];
+                    newNode->children[j] = promoted[i].first;
+                    ++newNode->count;
+                }
+                newNode->children[newNode->count] = promoted[i].first;
+
+                if (promoted[0].first != nullptr)
+                    newNode->leaf = false;
+                else
+                    newNode->leaf = true;
+
+                nextPromoted[t].first = newNode; // almacenar puntero hijo
+                nextPromoted[t].second = promoted[i].second; // almacenar posicion de padre derecho (en el caso extremo es basura)
+                ++i;
+            }
+            delete[] promoted;
+            return build_from_ordered_vector_recursivo(elements, nextPromoted, nextLevelSize, M);
+        } else {
+            throw std::runtime_error("Promoted no valido");
+        }
+    }
+
+
+
+    // -------------------- check_properties por nodo ---------------
+
+    //1- cada nodo debe tener al menos M/2
+    //2- garantizar que las hojas esten al mismo nivel
+    // cada nodo debe tener count+1 hijos
+    //3- los elementos en el nodo deben estar ordenados
+    //4- dado un elemento en un nodo interno:
+    // - los elemenos del subarbol izquierdo son menores
+    // - los elemenos del subarbol derecho son mayores
+
+    struct SubtreeProperties {
+        bool valid;
+        int height;
+        TK minKey; // minima key del subarbol formado por el nodo
+        TK maxKey; // maxima key del subarbol formado por el nodo
+    };
+
+    int minDegree = (M % 2 == 0) ? M / 2 : (M + 1) / 2;
+    int minKeys = minDegree - 1;
+
+    SubtreeProperties check_properties_rec(Node<TK>* const& node) const {
+
+        if (node == nullptr) {
+            return {true, -1, TK(), TK()};
+        }
+
+        if (node == root && node->count <= 0) // tiene que tener al menos una llave si es raiz
+            return {false, -1, TK(), TK()};
+
+        if (node != root && node->count < minKeys) // minimo de llaves
+            return {false, -1, TK(), TK()};
+
+        if (node->count > M - 1) // maximo de llaves
+            return {false, -1, TK(), TK()};
+
+        int prevSubtreeHeight = 0;
+        TK prevKey = TK();
+
+        TK maxKey = TK(); // maxima llave del subarbol formado por el nodo
+        TK minKey = TK(); // minima llave del subarbol formado por el nodo
+        int height = 0; // altura del subarbol formado por el nodo
+
+        for (int i = 0; i < node->count; ++ i) {
+            SubtreeProperties leftChildProps = check_properties_rec(node->children[i]);
+
+            if (!leftChildProps.valid) // el hijo izquierdo debe de ser válido
+                return {false, -1, TK(), TK()};
+
+            if (i == 0) {
+                prevKey = node->keys[i];
+
+                if (!node->leaf && node->keys[i] <= leftChildProps.maxKey) // la llave actual debe ser mayor a la maxima llave del subarbol de su hijo izquierdo
+                    return {false, -1, TK(), TK()};
+                prevSubtreeHeight = leftChildProps.height;
+
+                // minima key del subarbol formado por el del nodo
+                if (!node->leaf)
+                    minKey = leftChildProps.minKey;
+                else
+                    minKey = node->keys[i];
+            } else {
+                if (node->keys[i] <= prevKey) // las llaves deben de estar ordenadas
+                    return {false, -1, TK(), TK()};
+                if (!node->leaf) {
+                    if (prevKey >= leftChildProps.minKey) // la llave anterior debe ser menor a la minima llave del subarbol de su hijo derecho
+                        return {false, -1, TK(), TK()};
+                    if (node->keys[i] <= leftChildProps.maxKey) // la llave actual debe ser mayor a la maxima llave del subarbol de su hijo izquierdo
+                        return {false, -1, TK(), TK()};
+                }
+                // el hijo izquierdo de la llave actual debe de tener la misma altura que el hijo izquierdo de la llave anterior
+                if (prevSubtreeHeight != leftChildProps.height) // esto asegura tambien que las hojas esten al mismo nivel
+                    return {false, -1, TK(), TK()};
+
+                prevKey = node->keys[i];
+                prevSubtreeHeight = leftChildProps.height;
+            }
+
+            if (i + 1 == node->count) {
+                SubtreeProperties rightChildProps = check_properties_rec(node->children[node->count]);
+
+                if (!rightChildProps.valid) // el hijo derecho debe de ser válido
+                    return {false, -1, TK(), TK()};
+
+                if (!node->leaf && node->keys[i] >= rightChildProps.minKey) // la llabe actual debe ser menor que la minima llave del subarbol de su hijo derecho
+                    return {false, -1, TK(), TK()};
+
+                // el hijo izquierdo de la llave actual debe de tener la misma altura que el hijo derecho
+                if (leftChildProps.height != rightChildProps.height)
+                    return {false, -1, TK(), TK()};
+
+                // maxima key del subarbol formado por el del nodo
+                if (!node->leaf)
+                    maxKey = rightChildProps.maxKey;
+                else
+                    maxKey = node->keys[i];
+                // altura del nodo actual
+                height = rightChildProps.height + 1;
+            }
+        }
+
+        return {true, height, minKey, maxKey};
     }
 
 
