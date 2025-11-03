@@ -28,7 +28,49 @@ public:
 
 
     bool search(TK key);//indica si se encuentra o no un elemento
-    void insert(TK key);//inserta un elemento
+
+    void insert(const TK &key) {
+        if (root == nullptr) {
+            root = new Node<TK>(M);
+            root->keys[0] = key;
+            root->count = 1;
+            ++n;
+            return;
+        }
+
+        Pila<Pair<Node<TK> *, int>> pila; // almacena los pares (puntero al nodo y posicion de busqueda)
+
+        bool existe = findPathToKey(key, pila);
+        if (existe)
+            return; // ya existe
+
+        TK value = key;
+        Node<TK> *rightOfValue = nullptr;
+        Node<TK> *leftOfValue = nullptr;
+
+        while (true) {
+            if (pila.is_empty() || pila.top().first->count < M - 1) { // caso nodo con espacio
+                if (pila.is_empty()) {
+                    root = new Node<TK>(M);
+                    root->children[0] = leftOfValue;
+                    root->leaf = false;
+                    insertIntoNode(root, 0, value, rightOfValue);
+                } else {
+                    insertIntoNode(pila.top().first, pila.top().second, value, rightOfValue);
+                }
+                break;
+            } else {
+                Pair<Node<TK> *, TK> result =
+                        split(pila.top().first, pila.top().second, value, rightOfValue);
+                leftOfValue = pila.top().first;
+                rightOfValue = result.first;
+                value = result.second;
+                pila.pop();
+            }
+        }
+        ++n;
+    }
+
     void remove(TK key);//elimina un elemento
     int height();//altura del arbol. Considerar altura 0 para arbol vacio
     string toString(const string& sep);  // recorrido inorder
