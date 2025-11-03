@@ -111,7 +111,20 @@ public:
     }
 
     void remove(TK key);//elimina un elemento
-    int height();//altura del arbol. Considerar altura 0 para arbol vacio
+    int height() const {
+        if (root == nullptr)
+            return 0; // no estoy de acuerdo, pero creo que decia eso en las indicaciones. Caso contrario la altura es -1 de un arbol vacio
+
+        Node<TK> *current = root;
+        int height = 0;
+
+        while (true) {
+            if (current->leaf)
+                return height;
+            current = current->children[0];
+            ++height;
+        }
+    }//altura del arbol. Considerar altura 0 para arbol vacio
     string toString(const std::string &sep = " ") const {
         string result;
         toString(root, result, sep);
@@ -125,8 +138,28 @@ public:
         return result;
     }
 
-    TK minKey();  // minimo valor de la llave en el arbol
-    TK maxKey();  // maximo valor de la llave en el arbol
+    TK minKey() const {
+        if (root == nullptr)
+            throw std::runtime_error("Arbol vacio");
+
+        Node<TK> *current = root;
+        while (true) {
+            if (current->leaf)
+                return current->keys[0];
+            current = current->children[0];
+        }
+    }// minimo valor de la llave en el arbol
+    TK maxKey() const {
+        if (root == nullptr)
+            throw std::runtime_error("Arbol vacio");
+
+        Node<TK> *current = root;
+        while (true) {
+            if (current->leaf)
+                return current->keys[current->count - 1];
+            current = current->children[current->count];
+        }
+    }// maximo valor de la llave en el arbol
     void clear() {
         if (root != nullptr) {
             root->killSelf();
