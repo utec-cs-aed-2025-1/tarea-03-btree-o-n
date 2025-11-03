@@ -204,13 +204,13 @@ public:
             ++height;
         }
     }//altura del arbol. Considerar altura 0 para arbol vacio
-    string toString(const std::string &sep = " ") const {
-        string result;
+    std::string toString(const std::string &sep = " ") const {
+        std::string result;
         toString(root, result, sep);
         return result;
     } // recorrido inorder
-    vector<TK> rangeSearch(const TK& begin,const TK& end) {
-        vector<TK> result;
+    std::vector<TK> rangeSearch(const TK& begin,const TK& end) {
+        std::vector<TK> result;
         if (root == nullptr || begin > end)
             return result;
         rangeSearchRec(root, begin, end, result);
