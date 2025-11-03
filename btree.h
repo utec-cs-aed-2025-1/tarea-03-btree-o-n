@@ -110,7 +110,86 @@ public:
         ++n;
     }
 
-    void remove(TK key);//elimina un elemento
+
+    void remove(const TK& key) {
+        Pila<Pair<Node<TK> *, int>> pila; // almacena los pares (puntero al nodo y posicion de busqueda)
+        bool existe = findPathToKey(key, pila);
+        if (!existe)
+            return; // no existe la key
+
+        Node<TK>* current = pila.top().first;
+        int index = pila.top().second;
+
+        if (!current->leaf) {
+            Pair<TK, int> successorInfo = successor(pila); // la pila tambien tiene el nodo del succesor e indice del sucessor en este caso
+            current->keys[index] = successorInfo.first; // reemplazar por sucesor
+            // actualizar nuevo a eliminar, el sucesor siempre es una hoja
+            current = pila.top().first;
+            index = successorInfo.second;
+        }
+        removeKeyFromLeaf(current, index);
+
+        if (current == root) {
+            if (current->count == 0) {
+                delete[] root->keys;
+                delete[] root->children;
+                delete root;
+                root = nullptr;
+            }
+            --n;
+            return;
+        }
+
+        while (current->count < minKeys) {
+            pila.pop();
+            Node<TK>* parentNode = pila.top().first;
+            int parentChildIndex = pila.top().second;
+
+            if (parentChildIndex != parentNode->count
+                && parentNode->children[parentChildIndex + 1]->count > minKeys) { // si el hermano derecho tiene suficiente keys
+                rotate(current, parentNode, parentChildIndex, false);
+            } else if (parentChildIndex != 0
+                       && parentNode->children[parentChildIndex -1]->count > minKeys) { // si el hermano izquierdo tiene suficiente keys
+                rotate(current, parentNode, parentChildIndex, true);
+            } else if (parentChildIndex != parentNode->count) { // merge con el hermano derecho
+                merge(current, parentNode, parentChildIndex, false);
+                if (parentNode == root) {
+                    if (parentNode->count == 0) { // caso donde la raiz se queda sin keys
+                        // eliminando root
+                        root->children[0]  = nullptr;
+                        root->keys[0] = TK();
+                        delete[] root->keys;
+                        delete[] root->children;
+                        delete root;
+                        root = current;
+                    }
+                    break;
+
+                } else {
+                    current = parentNode;
+                }
+            } else { // merge con el hermano izquierdo
+                merge(current, parentNode, parentChildIndex, true);
+                if (parentNode == root) {
+                    if (parentNode->count == 0) { // caso donde la raiz se queda sin keys
+                        Node<TK>* sibling = parentNode->children[parentChildIndex - 1];
+                        // eliminando root
+                        root->children[0] = nullptr;
+                        root->keys[0] = TK();
+                        delete[] root->keys;
+                        delete[] root->children;
+                        delete root;
+                        root = sibling;
+                    }
+                    break;
+                } else {
+                    current = parentNode;
+                }
+            }
+        }
+        --n;
+    }
+//elimina un elemento
     int height() const {
         if (root == nullptr)
             return 0; // no estoy de acuerdo, pero creo que decia eso en las indicaciones. Caso contrario la altura es -1 de un arbol vacio
