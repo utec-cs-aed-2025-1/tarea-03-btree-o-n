@@ -10,6 +10,26 @@
 #include "Pila.h"
 #include "Pair.h"
 
+
+// para permitir que la key se pueda convertir a string
+template <typename TK>
+std::string keyToString(const TK& key) {
+    if constexpr (std::is_same_v<TK, std::string>)
+    return key;
+    else if constexpr (std::is_convertible_v<TK, std::string>)
+    return std::string(key);
+    else if constexpr (std::is_arithmetic_v<TK>) {
+        std::ostringstream oss;
+        oss << key;
+        return oss.str();
+    } else {
+        std::ostringstream oss;
+        oss << key;  // requiere operator<< sobrecargado en la clase TK
+        return oss.str();
+    }
+}
+
+
 template <typename TK>
 class BTree {
 private:
