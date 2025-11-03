@@ -47,7 +47,26 @@ public:
 
 
 
-    bool search(TK key);//indica si se encuentra o no un elemento
+    bool search(const TK &key) const { // asumiendo que los punteros de children estan inicializados con nullptr
+        Node<TK> *current = root;
+        while (current != nullptr) {
+            for (int i = 0; i < current->count; ++i) {
+                if (key < current->keys[i]) {
+                    current = current->children[i];
+                    break;
+                }
+                if (current->keys[i] < key) {
+                    if (i + 1 == current->count) {
+                        current = current->children[current->count];
+                        break;
+                    }
+                    continue;
+                }
+                return true;
+            }
+        }
+        return false;
+    }
 
     void insert(const TK &key) {
         if (root == nullptr) {
@@ -93,13 +112,31 @@ public:
 
     void remove(TK key);//elimina un elemento
     int height();//altura del arbol. Considerar altura 0 para arbol vacio
-    string toString(const string& sep);  // recorrido inorder
-    vector<TK> rangeSearch(TK begin, TK end);
+    string toString(const std::string &sep = " ") const {
+        string result;
+        toString(root, result, sep);
+        return result;
+    } // recorrido inorder
+    vector<TK> rangeSearch(const TK& begin,const TK& end) {
+        vector<TK> result;
+        if (root == nullptr || begin > end)
+            return result;
+        rangeSearchRec(root, begin, end, result);
+        return result;
+    }
 
     TK minKey();  // minimo valor de la llave en el arbol
     TK maxKey();  // maximo valor de la llave en el arbol
-    void clear(); // eliminar todos lo elementos del arbol
-    int size(); // retorna el total de elementos insertados
+    void clear() {
+        if (root != nullptr) {
+            root->killSelf();
+            root = nullptr;
+            n = 0;
+        }
+    }// eliminar todos lo elementos del arbol
+    const int& size() const {
+        return n;
+    }// retorna el total de elementos insertados
 
     // Construya un árbol B a partir de un vector de elementos ordenados
     static BTree* build_from_ordered_vector(std::vector<TK> &elements, const int& M) {
@@ -125,7 +162,9 @@ public:
     bool check_properties() const {
         return check_properties_rec(root).valid;
     }
-
+    bool empty() const {
+        return root == nullptr;
+    }
 private:
 
     // Construye el camino desde la raíz hasta la posición donde se encuentra o debería insertarse la key.
@@ -422,7 +461,41 @@ private:
     }
 
 
+    void toString(Node<TK>* const& node, std::string& result, const std::string& sep) const {
+        if (node == nullptr)
+            return;
 
+        for (int i = 0; i < node->count; ++i) {
+            toString(node->children[i], result, sep);
+            if (!result.empty())
+                result += sep;
+            result += keyToString(node->keys[i]);
+        }
+        toString(node->children[node->count], result, sep);
+    }
+
+    void rangeSearchRec(Node<TK>* node, const TK& begin, const TK& end, std::vector<TK>& result) const {
+        if (node == nullptr) return;
+
+        int i = 0;
+
+        while (i < node->count && node->keys[i] < begin) {
+            if (!node->leaf)
+                rangeSearchRec(node->children[i + 1], begin, end, result);
+            ++i;
+        }
+
+        for (; i < node->count && node->keys[i] <= end; ++i) {
+            if (!node->leaf)
+                rangeSearchRec(node->children[i], begin, end, result);
+
+            if (node->keys[i] >= begin && node->keys[i] <= end)
+                result.push_back(node->keys[i]);
+        }
+
+        if (!node->leaf)
+            rangeSearchRec(node->children[i], begin, end, result);
+    }
 
 
     // promoted tiene los punteros a los hijos y los indices de los elementos que suben(tiene tamaño size = numero de hijos)
